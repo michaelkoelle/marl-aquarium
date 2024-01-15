@@ -1,0 +1,14 @@
+{
+  "[python]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSaveMode": "file",
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+  "python.analysis.typeCheckingMode": "strict",
+  "python.analysis.useLibraryCodeForTypes": true,
+  "python.analysis.extraPaths": ["./sources/"],
+  "python.analysis.indexing": true
+}

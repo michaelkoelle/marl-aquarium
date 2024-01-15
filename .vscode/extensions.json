@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "zhuangtongfa.material-theme",
+    "aaron-bond.better-comments",
+    "eamodio.gitlens",
+    "ms-vscode-remote.vscode-remote-extensionpack",
+    "ms-python.black-formatter",
+    "ms-python.pylint"
+  ]
+}
