@@ -10,5 +10,6 @@
   "python.analysis.typeCheckingMode": "strict",
   "python.analysis.useLibraryCodeForTypes": true,
   "python.analysis.extraPaths": ["./sources/"],
-  "python.analysis.indexing": true
+  "python.analysis.indexing": true,
+  "pylint.args": ["--extension-pkg-whitelist=pygame"]
 }

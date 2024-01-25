@@ -1,16 +1,21 @@
+"""View class, handles the drawing of the environment."""
+
 import math
+from typing import Tuple
 
 import pygame
 
 from env import utils
 from env.animal import Entity
-from env.prey import Prey
 from env.predator import Predator
+from env.prey import Prey
 from env.vector import Vector
 
 
 class View:
-    def __init__(self, width, height, caption, fps):
+    """View class, handles the drawing of the environment."""
+
+    def __init__(self, width: int, height: int, caption: str, fps: int):
         pygame.init()
         pygame.display.set_caption(caption)
 
@@ -27,15 +32,24 @@ class View:
         self.background = pygame.Surface(self.screen.get_size())
         self.background.fill(self.background_color)
 
-        self.fish_image = pygame.image.load("graphics/fish3.PNG")
+        self.fish_image = pygame.image.load("graphics/prey.PNG")
         self.fish_image.convert()
 
-        self.shark_image = pygame.image.load("graphics/shark3.PNG")
+        self.shark_image = pygame.image.load("graphics/predator.PNG")
         self.shark_image.convert()
 
     def draw_view_cone(
-        self, position: Vector, orientation_angle: int, view_distance: int, fov: int, color
+        self,
+        position: Vector,
+        orientation_angle: int,
+        view_distance: int,
+        fov: int,
+        color: Tuple[int, int, int],
     ):
+        """
+        Draws a cone at the given position with the given orientation angle,
+        view distance and field of view.
+        """
         cone_pos = position
 
         cone_angle = math.radians(utils.scale(-orientation_angle, -180, 180, 0, 360)) + math.pi
@@ -59,34 +73,40 @@ class View:
 
         # Draw the filled cone
         alpha = 80
-        color = color + (alpha,)
+        color_alpha = color + (alpha,)
         angles_surface = self.screen.convert_alpha()
         angles_surface.fill([0, 0, 0, 0])
-        pygame.draw.polygon(angles_surface, color, points)
+        pygame.draw.polygon(angles_surface, color_alpha, points)
         self.screen.blit(angles_surface, (0, 0))
 
     def draw_background(self):
+        """Draws the background of the pygame window."""
         self.screen.blit(self.background, (0, 0))
         self.clock.tick(self.fps)
         fps = self.clock.get_fps()
         fps_string = self.font.render(str(int(fps)), True, pygame.Color("black"))
-        # self.screen.blit(fps_string, (1, 1))
+        self.screen.blit(fps_string, (1, 1))
 
-    def draw_circle_at_position(self, position: Vector, color, size):
+    def draw_circle_at_position(
+        self, position: Vector, color: Tuple[int, int, int, int], size: float
+    ):
+        """Draws a circle at the given position."""
         circle_surface = self.screen.convert_alpha()
         circle_surface.fill([0, 0, 0, 0])
         pygame.draw.circle(circle_surface, color, (position.x, position.y), size)
         self.screen.blit(circle_surface, (0, 0))
 
     def draw_line_from_position_to_position(
-        self, position1: Vector, position2: Vector, color, size
+        self, position1: Vector, position2: Vector, color: Tuple[int, int, int], width: int
     ):
+        """Draws a line from position1 to position2."""
         pygame.draw.circle(self.screen, color, (position2.x, position2.y), 3)
         pygame.draw.line(
-            self.screen, color, (position1.x, position1.y), (position2.x, position2.y), size
+            self.screen, color, (position1.x, position1.y), (position2.x, position2.y), width
         )
 
     def draw_animal(self, position: Vector, animal: Entity):
+        """Draws the given animal at the given position."""
         if animal.alive:
             if isinstance(animal, Prey):
                 fish = animal
@@ -113,8 +133,10 @@ class View:
                 )
 
     def get_frame(self):
+        """Returns the current frame of the pygame window."""
         return pygame.surfarray.array3d(pygame.display.get_surface())
 
     @staticmethod
     def close():
+        """Closes the pygame window."""
         pygame.quit()

@@ -1,3 +1,5 @@
+"""Aquarium environment"""
+
 import copy
 import datetime
 import functools
@@ -32,7 +34,6 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
 
     def __init__(
         self,
-        render: bool = False,
         observable_walls: int = 2,
         width: int = 800,
         height: int = 800,
@@ -113,13 +114,13 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
         self.draw_death_circles = draw_death_circles
 
         self.time_step = 0
-        self.terminations = None
-        self.truncations = None
+        # self.terminations = None
+        # self.truncations = None
 
         # Init
         self.prey = self.create_prey()
         self.predators = self.create_predators()
-        self.all_animals = self.prey + self.predators
+        self.all_entities = self.prey + self.predators
         self.current_prey_count = len(self.prey)
 
         self.observable_walls = observable_walls
@@ -142,9 +143,8 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
         self.agents = copy.deepcopy(self.possible_agents)
         self.past_shark_positions = None
 
-        self.view = View(self.width, self.height, self.caption, self.fps)
-
         self.torus = Torus(self.width, self.height)
+        self.view = None
 
     def reset(
         self,
@@ -158,7 +158,7 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
         self.prey = self.create_prey()
         self.predators = self.create_predators()
         self.current_prey_count = len(self.prey)
-        self.all_animals = self.prey + self.predators
+        self.all_entities = self.prey + self.predators
         infos = {agent: {} for agent in self.agents}
         return self.get_obs(), infos
 
@@ -167,7 +167,7 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
 
     def step(self, actions: Dict[Any, Any]):
         catches = []
-        for entity in self.all_animals:
+        for entity in self.all_entities:
             desired_velocity = self.get_desired_velocity_from_action(actions[entity.id()], entity)
             entity.age += 1
 
@@ -180,7 +180,7 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
                     catches.append(kill_event)
 
             # TODO: Move this to the render function
-            if self.draw_action_vectors:
+            if self.view and self.draw_action_vectors:
                 self.view.draw_line_from_position_to_position(
                     entity.position,
                     Vector(
@@ -203,17 +203,17 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
             rewards[dead_fish] = 0
 
         # Check termination conditions
-        self.terminations = {agent: False for agent in self.agents}
-        self.truncations = {agent: False for agent in self.agents}
+        terminations = {agent: False for agent in self.agents}
+        truncations = {agent: False for agent in self.agents}
 
         for agent in self.agents:
             if agent.startswith("predator"):
-                self.terminations[agent] = get_predator_by_id(agent, self.predators) is None
+                terminations[agent] = get_predator_by_id(agent, self.predators) is None
             elif agent.startswith("prey"):
-                self.terminations[agent] = get_prey_by_id(agent, self.prey) is None
+                terminations[agent] = get_prey_by_id(agent, self.prey) is None
 
         if self.time_step > self.max_time_steps or len(self.prey) == 0 or len(self.predators) == 0:
-            self.truncations = {a: True for a in self.agents}
+            truncations = {a: True for a in self.agents}
 
         self.time_step += 1
 
@@ -227,18 +227,21 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
                 rewards[agent] = 0.0
             if agent not in infos:
                 infos[agent] = {}
-            if agent not in self.terminations:
-                self.terminations[agent] = True
-            if agent not in self.truncations:
-                self.truncations[agent] = False
+            if agent not in terminations:
+                terminations[agent] = True
+            if agent not in truncations:
+                truncations[agent] = False
 
         # Remove terminated or truncated agents
+        to_remove = []
         for agent in self.agents:
-            if self.terminations[agent] or self.truncations[agent]:
-                self.agents.remove(agent)
-                # print(f"Removed agent {agent} from agents list")
+            if terminations[agent] or truncations[agent]:
+                to_remove.append(agent)
 
-        return observations, rewards, self.terminations, self.truncations, infos
+        for agent in to_remove:
+            self.agents.remove(agent)
+
+        return observations, rewards, terminations, truncations, infos
 
     def get_obs(self):
         """Returns the observations for all agents"""
@@ -251,6 +254,9 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
         if mode != "human":
             return
 
+        if self.view is None:
+            self.view = View(self.width, self.height, self.caption, self.fps)
+
         self.view.draw_background()
 
         screenshot_number = 1
@@ -259,27 +265,27 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
                 pygame.quit()  # pylint: disable=no-member
                 sys.exit()
 
-        for animal in self.all_animals:
-            if isinstance(animal, Prey):
+        for entity in self.all_entities:
+            if isinstance(entity, Prey):
                 if self.draw_force_vectors:
-                    self.draw_force_vectors_to_canvas(animal)
+                    self.draw_force_vectors_to_canvas(entity)
                 if self.draw_view_cones:
-                    self.draw_view_cone_in_torus(animal, self.prey_view_distance, self.prey_fov)
+                    self.draw_view_cone_in_torus(entity, self.prey_view_distance, self.prey_fov)
                 if self.draw_hit_boxes:
-                    self.draw_hit_box_in_torus(animal)
+                    self.draw_hit_box_in_torus(entity)
                 if self.draw_death_circles:
-                    self.draw_death_circle(animal)
-                self.draw_entity_in_torus(animal)
+                    self.draw_death_circle(entity)
+                self.draw_entity_in_torus(entity)
             else:
                 if self.draw_force_vectors:
-                    self.draw_force_vectors_to_canvas(animal)
+                    self.draw_force_vectors_to_canvas(entity)
                 if self.draw_view_cones:
                     self.draw_view_cone_in_torus(
-                        animal, self.predator_view_distance, self.predator_fov
+                        entity, self.predator_view_distance, self.predator_fov
                     )
                 if self.draw_hit_boxes:
-                    self.draw_hit_box_in_torus(animal)
-                self.draw_entity_in_torus(animal)
+                    self.draw_hit_box_in_torus(entity)
+                self.draw_entity_in_torus(entity)
         pygame.display.update()
 
         for event in pygame.event.get():
@@ -433,50 +439,50 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
             if prey.age == prey.replication_age and self.current_prey_count < self.max_prey_count:
                 self.prey.append(prey.replicate())
                 prey.age = 0
-                self.all_animals = self.prey + self.predators
+                self.all_entities = self.prey + self.predators
                 self.current_prey_count += 1
         if not prey.alive:
             self.dead_animals[prey.id()] = self.time_step
-            self.all_animals.remove(prey)
+            self.all_entities.remove(prey)
             self.prey.remove(prey)
         return prey
 
-    def update_predator(self, shark: Predator, desired_velocity: Vector):
+    def update_predator(self, predator: Predator, desired_velocity: Vector):
         """Updates the predator"""
-        if shark.age > self.predator_max_age:
-            shark.alive = False
+        if predator.age > self.predator_max_age:
+            predator.alive = False
 
         steer_force = desired_velocity.copy()
-        steer_force.sub(shark.velocity)
+        steer_force.sub(predator.velocity)
         steer_force.limit(self.predator_max_steer_force)
 
-        self.check_borders(shark)
-        shark.apply_force(steer_force)
-        shark.acceleration.normalize()
-        shark.acceleration.mult(self.predator_max_acceleration)
+        self.check_borders(predator)
+        predator.apply_force(steer_force)
+        predator.acceleration.normalize()
+        predator.acceleration.mult(self.predator_max_acceleration)
 
-        colliding_shark = self.torus.get_colliding_animal(shark, self.predators)
-        colliding_fish = self.torus.get_colliding_animal(shark, self.prey)
+        colliding_shark = self.torus.get_colliding_animal(predator, self.predators)
+        colliding_fish = self.torus.get_colliding_animal(predator, self.prey)
 
         if colliding_shark is not None:
             bounce_acceleration = self.torus.get_directional_vector_to_animal_in_torus(
-                shark, colliding_shark.position
+                predator, colliding_shark.position
             )
             bounce_acceleration.negate()
             bounce_acceleration.set_mag(self.predator_max_velocity / 8)
-            shark.acceleration.add(bounce_acceleration)
+            predator.acceleration.add(bounce_acceleration)
 
         if colliding_fish is not None:
-            shark.age = 0
+            predator.age = 0
 
-        shark.velocity.add(shark.acceleration)
-        shark.velocity.limit(self.predator_max_velocity)
-        shark.position.add(shark.velocity)
-        shark.change_orientation(get_angle_from_vector(shark.velocity))
-        if not shark.alive:
-            self.all_animals.remove(shark)
-            self.predators.remove(shark)
-        return shark
+        predator.velocity.add(predator.acceleration)
+        predator.velocity.limit(self.predator_max_velocity)
+        predator.position.add(predator.velocity)
+        predator.change_orientation(get_angle_from_vector(predator.velocity))
+        if not predator.alive:
+            self.all_entities.remove(predator)
+            self.predators.remove(predator)
+        return predator
 
     def get_predator_by_id(self, predator_id: str):
         """Returns the predator with the given id"""
@@ -492,17 +498,23 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
 
     def get_entity_by_id(self, animal_id: str):
         """Returns the animal with the given id"""
-        for animal in self.all_animals:
+        for animal in self.all_entities:
             if animal.id() == animal_id:
                 return animal
 
     def draw_target(self, predator: Predator, agent_target_position: Vector):
         """Draws the target of the predator"""
-        self.view.draw_circle_at_position(agent_target_position, (255, 0, 0), 5)
+        if not self.view:
+            return
+
+        self.view.draw_circle_at_position(agent_target_position, (255, 0, 0, 255), 5)
         # self.view.draw_line_from_position_to_position(shark.position, agent_target_position, color=(255, 0, 0))
 
     def draw_force_vectors_to_canvas(self, entity: Entity):
         """Draws the force vectors of the given entity"""
+        if not self.view:
+            return
+
         velocity_vector = entity.velocity.copy()
         velocity_vector.normalize()
         velocity_vector.mult(30)
@@ -527,6 +539,9 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
 
     def draw_view_cone_in_torus(self, animal: Entity, view_distance: int, fov: int):
         """Draws the view cone of the given animal"""
+        if not self.view:
+            return
+
         if isinstance(animal, Predator):
             color = (82, 117, 172)
         else:
@@ -548,6 +563,9 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
 
     def draw_entity_in_torus(self, entity: Entity):
         """Draws the given einity in the torus"""
+        if not self.view:
+            return
+
         # Draw main animal
         self.view.draw_animal(entity.position, entity)
         # Draw animal multiple times, so it is visible when it is at the edge of the screen
@@ -555,6 +573,9 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
 
     def draw_hit_box_in_torus(self, entity: Entity):
         """Draws the hit box of the given entity"""
+        if not self.view:
+            return
+
         alpha = 80
         if isinstance(entity, Predator):
             color = (82, 117, 172, alpha)
@@ -567,9 +588,12 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
 
     def draw_death_circle(self, prey: Prey):
         """Draws the death circle of the given prey"""
+        if not self.view:
+            return
+
         if prey.recently_died:
             self.death_positions.append(prey.position)
-        color = (255, 0, 0)
+        color = (255, 0, 0, 255)
         for death_position in self.death_positions:
             self.view.draw_circle_at_position(death_position, color, 4)
 
