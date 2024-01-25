@@ -1,8 +1,10 @@
+"""This module contains the Animal class."""
+
 import math
 from abc import ABC, abstractmethod
 from typing import Tuple
 
-from env.vector import Vector
+from aquarium.env.vector import Vector
 
 
 class Entity(ABC):

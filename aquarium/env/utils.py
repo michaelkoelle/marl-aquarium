@@ -8,10 +8,10 @@ import numpy as np
 from moviepy.video.compositing.concatenate import concatenate_videoclips
 from moviepy.video.VideoClip import ImageClip
 
-from env.animal import Entity
-from env.predator import Predator
-from env.prey import Prey
-from env.vector import Vector
+from aquarium.env.animal import Entity
+from aquarium.env.predator import Predator
+from aquarium.env.prey import Prey
+from aquarium.env.vector import Vector
 
 
 class Torus:
@@ -98,7 +98,7 @@ class Torus:
         # If the object is within the field of view and within the view distance
         if (
             angular_diff <= fov / 2
-            and get_distance(view_cone_position, animal.position) - animal.radius <= view_distance
+            and get_distance(view_cone_position, animal.position) <= view_distance
         ):
             return True
 
@@ -242,11 +242,39 @@ def get_action_angle_from_vector(vector: Vector, action_count: int):
     return action_angle
 
 
-def scale(value: float, input_min: float, input_max: float, output_min: float, output_max: float):
-    """https://stackoverflow.com/questions/929103/"""
+def scale(
+    value: float,
+    input_min: float,
+    input_max: float,
+    output_min: float,
+    output_max: float,
+    tolerance: float = 1e-9,
+):
+    """Scales the given value from the input range to the output range"""
+
+    assert (
+        value >= input_min - tolerance
+    ), f"Value {value} is smaller than input_min {input_min} considering tolerance"
+    assert (
+        value <= input_max + tolerance
+    ), f"Value {value} is larger than input_max {input_max} considering tolerance"
+
+    # Adjust the input value if it's within the tolerance of the boundaries
+    if abs(value - input_min) < tolerance:
+        value = input_min
+    elif abs(value - input_max) < tolerance:
+        value = input_max
+
     input_range = input_max - input_min
     output_range = output_max - output_min
-    return (((value - input_min) * output_range) / input_range) + output_min
+
+    # Scale the value from the input range to the output range
+    scaled_value = (((value - input_min) * output_range) / input_range) + output_min
+
+    # Ensure the scaled value is within the output boundaries
+    scaled_value = max(min(scaled_value, output_max), output_min)
+
+    return scaled_value
 
 
 def cartesian_to_polar(x: float, y: float) -> Tuple[float, float]:

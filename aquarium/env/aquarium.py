@@ -10,12 +10,14 @@ from typing import Any, Collection, Dict, List, Optional, Sequence
 import numpy as np
 import pygame
 from gymnasium.spaces import Box, Discrete
+from pettingzoo.utils.conversions import aec_to_parallel, parallel_to_aec
 from pettingzoo.utils.env import ParallelEnv
+from pettingzoo.utils.wrappers import AssertOutOfBoundsWrapper, OrderEnforcingWrapper
 
-from env.animal import Entity
-from env.predator import Predator
-from env.prey import Prey
-from env.utils import (
+from aquarium.env.animal import Entity
+from aquarium.env.predator import Predator
+from aquarium.env.prey import Prey
+from aquarium.env.utils import (
     Torus,
     get_angle_from_vector,
     get_predator_by_id,
@@ -23,14 +25,14 @@ from env.utils import (
     get_vector_from_action,
     scale,
 )
-from env.vector import Vector
-from env.view import View
+from aquarium.env.vector import Vector
+from aquarium.env.view import View
 
 
-class Aquarium(ParallelEnv[str, Box, Discrete]):
+class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
     """The Aquarium environment"""
 
-    metadata = {"name": "Aquarium-v0", "render.modes": ["human"]}
+    metadata = {"name": "aquarium-v0", "render_modes": ["human"]}
 
     def __init__(
         self,
@@ -50,7 +52,7 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
         draw_view_cones: bool = False,
         draw_hit_boxes: bool = False,
         draw_death_circles: bool = False,
-        fov_enabled: bool = False,
+        fov_enabled: bool = True,
         keep_prey_count_constant: bool = True,
         prey_radius: int = 20,
         prey_max_acceleration: float = 1,
@@ -130,11 +132,11 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
             "prey_" + str(i) for i in range(self.prey_count)
         ]
         self.number_of_fish_observations = (
-            4 + self.predator_observe_count * 5 + (self.prey_observe_count - 1) * 5
+            4 + self.predator_observe_count * 5 + (self.prey_observe_count) * 5
         )
 
         self.number_of_predator_observations = (
-            4 + self.prey_observe_count * 5 + (self.predator_observe_count - 1) * 5
+            4 + self.prey_observe_count * 5 + (self.predator_observe_count) * 5
         )
         self.number_of_observations = (
             self.number_of_fish_observations + self.number_of_predator_observations
@@ -352,14 +354,14 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
         # Predator
         if agent.startswith("predator"):
             return Box(
-                low=-1.0,
+                low=0.0,
                 high=1.0,
                 shape=(self.number_of_predator_observations,),
                 dtype=np.float64,
             )
         # Prey
         return Box(
-            low=-1.0,
+            low=0.0,
             high=1.0,
             shape=(self.number_of_fish_observations,),
             dtype=np.float64,
@@ -414,7 +416,7 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
         steer_force = desired_velocity.copy()
         steer_force.sub(prey.velocity)
         steer_force.limit(self.prey_max_steer_force)
-        self.check_borders(prey)
+
         prey.apply_force(steer_force)
 
         prey.acceleration.normalize()
@@ -433,6 +435,7 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
             prey.velocity.add(bounce_acceleration)
         prey.velocity.limit(self.prey_max_velocity)
         prey.position.add(prey.velocity)
+        self.check_borders(prey)
         prey.change_orientation(get_angle_from_vector(prey.velocity))
 
         if self.procreate:
@@ -456,7 +459,6 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
         steer_force.sub(predator.velocity)
         steer_force.limit(self.predator_max_steer_force)
 
-        self.check_borders(predator)
         predator.apply_force(steer_force)
         predator.acceleration.normalize()
         predator.acceleration.mult(self.predator_max_acceleration)
@@ -478,6 +480,7 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
         predator.velocity.add(predator.acceleration)
         predator.velocity.limit(self.predator_max_velocity)
         predator.position.add(predator.velocity)
+        self.check_borders(predator)
         predator.change_orientation(get_angle_from_vector(predator.velocity))
         if not predator.alive:
             self.all_entities.remove(predator)
@@ -649,33 +652,37 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
         return total_reward
 
     def prey_observer_observation(
-        self, observer: Entity, obs_min: float = -1, obs_max: float = 1
+        self, observer: Entity, obs_min: float = 0, obs_max: float = 1
     ) -> List[float]:
         """Get the observations of the current state of the environment of an observer."""
         position = observer.position
         direction = observer.orientation_angle
         speed = observer.velocity.mag()
-        scaled_position_x = scale(position.x, 0, self.width, 0, obs_max)
-        scaled_position_y = scale(position.y, 0, self.height, 0, obs_max)
-        scaled_direction = scale(direction, -np.pi, np.pi, obs_min, obs_max)
-        scaled_speed = scale(speed, 0, observer.max_speed, 0, obs_max)
+        scaled_position_x = scale(position.x, 0, self.width, obs_min, obs_max)
+        scaled_position_y = scale(position.y, 0, self.height, obs_min, obs_max)
+        scaled_direction = scale(direction, -180, 180, obs_min, obs_max)
+        scaled_speed = scale(speed, 0, observer.max_speed, obs_min, obs_max)
         observation = [scaled_position_x, scaled_position_y, scaled_direction, scaled_speed]
         # print(f'Observer_observation: {len(observation)}')
+
+        assert all(
+            obs_min <= value <= obs_max for value in observation
+        ), "prey_observer_observation: All values must be between -1 and 1"
         return observation
 
     def nearby_animal_observation(
-        self, observer: Entity, animal: Entity, obs_min: float = -1, obs_max: float = 1
+        self, observer: Entity, animal: Entity, obs_min: float = 0, obs_max: float = 1
     ) -> List[float]:
         """Get the observations of the current state of the environment of an observer."""
         position = animal.position
         distance = self.torus.get_distance_in_torus(observer.position, animal.position)
         direction = self.torus.get_direction_in_torus(observer.position, animal.position)
         speed = animal.velocity.mag()
-        scaled_position_x = scale(position.x, 0, self.width, 0, obs_max)
-        scaled_position_y = scale(position.y, 0, self.height, 0, obs_max)
-        scaled_distance = scale(distance, 0, observer.view_distance, 0, obs_max)
-        scaled_direction = scale(direction, -np.pi, np.pi, obs_min, obs_max)
-        scaled_speed = scale(speed, 0, observer.max_speed, 0, obs_max)
+        scaled_position_x = scale(position.x, 0, self.width, obs_min, obs_max)
+        scaled_position_y = scale(position.y, 0, self.height, obs_min, obs_max)
+        scaled_distance = scale(distance, 0, observer.view_distance, obs_min, obs_max)
+        scaled_direction = scale(direction, -180, 180, obs_min, obs_max)
+        scaled_speed = scale(speed, 0, animal.max_speed, obs_min, obs_max)
         observation = [
             scaled_position_x,
             scaled_position_y,
@@ -684,6 +691,11 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
             scaled_speed,
         ]
         # print(f'Nearby_animal_observation: {observation}')
+        # print(distance, scaled_distance)
+        # print(observation)
+        assert all(
+            obs_min <= value <= obs_max for value in observation
+        ), "nearby_animal_observation: All values must be between -1 and 1"
         return observation
 
     def prey_get_n_closest_animals(
@@ -725,8 +737,10 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
                 observations += observation
             # print(f'Fish Num diff: {fish_num - len(all_fishes)}')
 
-        if len(all_sharks) < self.predator_observe_count:
-            observations += [0] * 5 * (n_nearest_shark - len(all_sharks))
+        if len(observations) < n_nearest_shark * 5:
+            observations += [0] * 5 * (n_nearest_shark - len(observations))
+
+        assert len(observations) == n_nearest_shark * 5
         # print(f'Shark observations: {len(observations)}')
         return observations
 
@@ -735,14 +749,29 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
     ) -> List[float]:
         """Get the observations of the current state of the environment of an observer."""
         observations = []
-        closest_fish = self.prey_get_n_closest_animals(observer, all_fishes, n_nearest_fish)
-        for fish in closest_fish:
-            if fish is not observer:
-                observation = self.nearby_animal_observation(observer, fish)
-                observations += observation
-        # print(f'Fish Num diff: {fish_num - len(all_fishes)}')
-        if len(all_fishes) < n_nearest_fish:
-            observations += [0] * 5 * (n_nearest_fish - len(all_fishes))
+
+        if self.fov_enabled:
+            for fish in all_fishes:
+                if (
+                    self.torus.check_if_entity_is_in_view_in_torus(
+                        observer, fish, self.prey_view_distance, self.prey_fov
+                    )
+                    and len(observations) < n_nearest_fish * 5
+                ):
+                    observation = self.nearby_animal_observation(observer, fish)
+                    observations += observation
+        else:
+            closest_fish = self.prey_get_n_closest_animals(observer, all_fishes, n_nearest_fish)
+            for fish in closest_fish:
+                if fish is not observer:
+                    observation = self.nearby_animal_observation(observer, fish)
+                    observations += observation
+                    # print(f'Fish Num diff: {fish_num - len(all_fishes)}')
+
+        if len(observations) < (n_nearest_fish * 5):
+            observations += [0] * (n_nearest_fish * 5 - len(observations))
+
+        assert len(observations) == n_nearest_fish * 5
         # print(f'Fish observations: {len(observations)}')
         return observations
 
@@ -761,10 +790,13 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
         observed_fishes = self.prey_nearby_fish_observations(
             observer, self.prey, self.prey_observe_count
         )
+        # print(len(observed_observer), len(observed_sharks), len(observed_fishes))
         # print(f'Number of Shark Observations: {len(observed_sharks)}')
         observations = np.concatenate((observed_observer, observed_sharks, observed_fishes))
         # print(f'Total Number of Fish Observations: {len(observations)}')
         # print(f'Observations: {observations}')
+        # print(len(observations), self.number_of_fish_observations)
+        assert len(observations) == self.number_of_fish_observations
         return observations
 
     def prey_observe(self):
@@ -782,17 +814,21 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
         return observations
 
     def predator_observer_observation(
-        self, observer: Entity, obs_min: float = -1, obs_max: float = 1
+        self, observer: Entity, obs_min: float = 0, obs_max: float = 1
     ) -> Sequence[float]:
         """Get the observations of the current state of the environment of an observer."""
         position = observer.position
         direction = observer.orientation_angle
         speed = observer.velocity.mag()
-        scaled_position_x = scale(position.x, 0, self.width, 0, obs_max)
-        scaled_position_y = scale(position.y, 0, self.height, 0, obs_max)
-        scaled_direction = scale(direction, -np.pi, np.pi, obs_min, obs_max)
-        scaled_speed = scale(speed, 0, observer.max_speed, 0, obs_max)
+        scaled_position_x = scale(position.x, 0, self.width, obs_min, obs_max)
+        scaled_position_y = scale(position.y, 0, self.height, obs_min, obs_max)
+        scaled_direction = scale(direction, -180, 180, obs_min, obs_max)
+        scaled_speed = scale(speed, 0, observer.max_speed, obs_min, obs_max)
         observation = [scaled_position_x, scaled_position_y, scaled_direction, scaled_speed]
+
+        assert all(
+            obs_min <= value <= obs_max for value in observation
+        ), "predator_observer_observation: All values must be between -1 and 1"
         # print(f'Observer_observation: {len(observation)}')
         return observation
 
@@ -801,8 +837,11 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
         observations = []
         if self.fov_enabled:
             for shark in self.predators:
-                if self.torus.check_if_entity_is_in_view_in_torus(
-                    observer, shark, self.prey_view_distance, self.prey_fov
+                if (
+                    self.torus.check_if_entity_is_in_view_in_torus(
+                        observer, shark, self.prey_view_distance, self.prey_fov
+                    )
+                    and len(observations) < self.predator_observe_count * 5
                 ):
                     observation = self.nearby_animal_observation(observer, shark)
                     observations += observation
@@ -813,6 +852,10 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
                 observations += observation
 
         # print(f'Shark observations: {len(observations)}')
+
+        if len(observations) < self.predator_observe_count * 5:
+            observations += [0] * (self.predator_observe_count * 5 - len(observations))
+
         return observations
 
     def predator_get_n_closest_fish(self, observer: Entity) -> Sequence[Entity]:
@@ -839,14 +882,15 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
                 ):
                     observation = self.nearby_animal_observation(observer, fish)
                     observations += observation
-        closest_fish = self.predator_get_n_closest_fish(observer)
-        for fish in closest_fish:
-            if fish is not observer:
-                observation = self.nearby_animal_observation(observer, fish)
-                observations += observation
+        else:
+            closest_fish = self.predator_get_n_closest_fish(observer)
+            for fish in closest_fish:
+                if fish is not observer:
+                    observation = self.nearby_animal_observation(observer, fish)
+                    observations += observation
         # print(f'Fish Num diff: {fish_num - len(all_fishes)}')
-        if len(self.prey) < self.prey_observe_count:
-            observations += [0] * 5 * (self.prey_observe_count - len(self.prey))
+        if len(observations) < self.prey_observe_count * 5:
+            observations += [0] * (self.prey_observe_count * 5 - len(observations))
         # print(f'Fish observations: {len(observations)}')
         return observations
 
@@ -857,9 +901,11 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
         # observed_borders = border_observation(observer, aquarium, aquarium.observable_walls)
         observed_sharks = self.predator_nearby_shark_observations(observer)
         observed_fishes = self.predator_nearby_fish_observations(observer)
+
         observations = np.concatenate((observed_observer, observed_sharks, observed_fishes))
         # print(f'Total Number of Shark Observations: {len(observations)}')
         # print(f'Observations: {observations}')
+        assert len(observations) == self.number_of_predator_observations
         return observations
 
     def predator_observe(self):
@@ -879,3 +925,17 @@ class Aquarium(ParallelEnv[str, Box, Discrete]):
         #     return observations
         # observations = {shark.id(): get_shark_observations(shark, aquarium, FISH_NUMBER) for shark in aquarium.sharks}
         return observations
+
+
+def env():
+    """Returns the AEC environment"""
+    env_aec = parallel_to_aec(raw_env())
+    env_aec = AssertOutOfBoundsWrapper(env_aec)
+    env_aec = OrderEnforcingWrapper(env_aec)
+
+    return env_aec
+
+
+def parallel_env():
+    """Returns the parallel environment"""
+    return aec_to_parallel(env())

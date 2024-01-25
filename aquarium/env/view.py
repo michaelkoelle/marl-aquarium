@@ -5,11 +5,11 @@ from typing import Tuple
 
 import pygame
 
-from env import utils
-from env.animal import Entity
-from env.predator import Predator
-from env.prey import Prey
-from env.vector import Vector
+from aquarium.env import utils
+from aquarium.env.animal import Entity
+from aquarium.env.predator import Predator
+from aquarium.env.prey import Prey
+from aquarium.env.vector import Vector
 
 
 class View:
@@ -32,10 +32,10 @@ class View:
         self.background = pygame.Surface(self.screen.get_size())
         self.background.fill(self.background_color)
 
-        self.fish_image = pygame.image.load("graphics/prey.PNG")
+        self.fish_image = pygame.image.load("aquarium/env/assets/prey.png")
         self.fish_image.convert()
 
-        self.shark_image = pygame.image.load("graphics/predator.PNG")
+        self.shark_image = pygame.image.load("aquarium/env/assets/predator.png")
         self.shark_image.convert()
 
     def draw_view_cone(

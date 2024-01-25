@@ -1,7 +1,9 @@
+"""Predator class, inherits from Animal class."""
+
 from typing import Tuple
 
-from env.animal import Entity
-from env.vector import Vector
+from aquarium.env.animal import Entity
+from aquarium.env.vector import Vector
 
 
 class Predator(Entity):
