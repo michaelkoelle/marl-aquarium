@@ -10,9 +10,7 @@ from typing import Any, Collection, Dict, List, Optional, Sequence
 import numpy as np
 import pygame
 from gymnasium.spaces import Box, Discrete
-from pettingzoo.utils.conversions import aec_to_parallel, parallel_to_aec
 from pettingzoo.utils.env import ParallelEnv
-from pettingzoo.utils.wrappers import AssertOutOfBoundsWrapper, OrderEnforcingWrapper
 
 from aquarium.env.animal import Entity
 from aquarium.env.predator import Predator
@@ -36,6 +34,7 @@ class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
 
     def __init__(
         self,
+        render_mode: str = "human",
         observable_walls: int = 2,
         width: int = 800,
         height: int = 800,
@@ -75,6 +74,7 @@ class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
         catch_radius: int = 100,
         procreate: bool = False,
     ):
+        self.render_mode = render_mode
         self.height = height
         self.width = width
         self.caption = caption
@@ -131,12 +131,17 @@ class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
         self.possible_agents = ["predator_" + str(r) for r in range(self.predator_count)] + [
             "prey_" + str(i) for i in range(self.prey_count)
         ]
+        self.obs_size = 6
         self.number_of_fish_observations = (
-            4 + self.predator_observe_count * 5 + (self.prey_observe_count) * 5
+            5
+            + self.predator_observe_count * self.obs_size
+            + (self.prey_observe_count) * self.obs_size
         )
 
         self.number_of_predator_observations = (
-            4 + self.prey_observe_count * 5 + (self.predator_observe_count) * 5
+            5
+            + self.prey_observe_count * self.obs_size
+            + (self.predator_observe_count) * self.obs_size
         )
         self.number_of_observations = (
             self.number_of_fish_observations + self.number_of_predator_observations
@@ -252,8 +257,11 @@ class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
         observations = prey_observations | predator_observations
         return observations
 
-    def render(self, mode: str = "human"):
-        if mode != "human":
+    def render(self, mode: str | None = "human"):
+        if mode is not None:
+            self.render_mode = mode
+
+        if self.render_mode != "human":
             return
 
         if self.view is None:
@@ -662,7 +670,7 @@ class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
         scaled_position_y = scale(position.y, 0, self.height, obs_min, obs_max)
         scaled_direction = scale(direction, -180, 180, obs_min, obs_max)
         scaled_speed = scale(speed, 0, observer.max_speed, obs_min, obs_max)
-        observation = [scaled_position_x, scaled_position_y, scaled_direction, scaled_speed]
+        observation = [1, scaled_position_x, scaled_position_y, scaled_direction, scaled_speed]
         # print(f'Observer_observation: {len(observation)}')
 
         assert all(
@@ -683,13 +691,21 @@ class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
         scaled_distance = scale(distance, 0, observer.view_distance, obs_min, obs_max)
         scaled_direction = scale(direction, -180, 180, obs_min, obs_max)
         scaled_speed = scale(speed, 0, animal.max_speed, obs_min, obs_max)
+
+        if isinstance(animal, Predator):
+            entity_type = 0
+        else:
+            entity_type = 1
+
         observation = [
+            entity_type,
             scaled_position_x,
             scaled_position_y,
             scaled_distance,
             scaled_direction,
             scaled_speed,
         ]
+
         # print(f'Nearby_animal_observation: {observation}')
         # print(distance, scaled_distance)
         # print(observation)
@@ -737,10 +753,10 @@ class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
                 observations += observation
             # print(f'Fish Num diff: {fish_num - len(all_fishes)}')
 
-        if len(observations) < n_nearest_shark * 5:
-            observations += [0] * 5 * (n_nearest_shark - len(observations))
+        if len(observations) < n_nearest_shark * self.obs_size:
+            observations += [0] * self.obs_size * (n_nearest_shark - len(observations))
 
-        assert len(observations) == n_nearest_shark * 5
+        assert len(observations) == n_nearest_shark * self.obs_size
         # print(f'Shark observations: {len(observations)}')
         return observations
 
@@ -756,7 +772,7 @@ class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
                     self.torus.check_if_entity_is_in_view_in_torus(
                         observer, fish, self.prey_view_distance, self.prey_fov
                     )
-                    and len(observations) < n_nearest_fish * 5
+                    and len(observations) < n_nearest_fish * self.obs_size
                 ):
                     observation = self.nearby_animal_observation(observer, fish)
                     observations += observation
@@ -768,10 +784,10 @@ class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
                     observations += observation
                     # print(f'Fish Num diff: {fish_num - len(all_fishes)}')
 
-        if len(observations) < (n_nearest_fish * 5):
-            observations += [0] * (n_nearest_fish * 5 - len(observations))
+        if len(observations) < (n_nearest_fish * self.obs_size):
+            observations += [0] * (n_nearest_fish * self.obs_size - len(observations))
 
-        assert len(observations) == n_nearest_fish * 5
+        assert len(observations) == n_nearest_fish * self.obs_size
         # print(f'Fish observations: {len(observations)}')
         return observations
 
@@ -824,7 +840,7 @@ class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
         scaled_position_y = scale(position.y, 0, self.height, obs_min, obs_max)
         scaled_direction = scale(direction, -180, 180, obs_min, obs_max)
         scaled_speed = scale(speed, 0, observer.max_speed, obs_min, obs_max)
-        observation = [scaled_position_x, scaled_position_y, scaled_direction, scaled_speed]
+        observation = [0, scaled_position_x, scaled_position_y, scaled_direction, scaled_speed]
 
         assert all(
             obs_min <= value <= obs_max for value in observation
@@ -841,7 +857,7 @@ class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
                     self.torus.check_if_entity_is_in_view_in_torus(
                         observer, shark, self.prey_view_distance, self.prey_fov
                     )
-                    and len(observations) < self.predator_observe_count * 5
+                    and len(observations) < self.predator_observe_count * self.obs_size
                 ):
                     observation = self.nearby_animal_observation(observer, shark)
                     observations += observation
@@ -853,8 +869,8 @@ class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
 
         # print(f'Shark observations: {len(observations)}')
 
-        if len(observations) < self.predator_observe_count * 5:
-            observations += [0] * (self.predator_observe_count * 5 - len(observations))
+        if len(observations) < self.predator_observe_count * self.obs_size:
+            observations += [0] * (self.predator_observe_count * self.obs_size - len(observations))
 
         return observations
 
@@ -889,8 +905,8 @@ class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
                     observation = self.nearby_animal_observation(observer, fish)
                     observations += observation
         # print(f'Fish Num diff: {fish_num - len(all_fishes)}')
-        if len(observations) < self.prey_observe_count * 5:
-            observations += [0] * (self.prey_observe_count * 5 - len(observations))
+        if len(observations) < self.prey_observe_count * self.obs_size:
+            observations += [0] * (self.prey_observe_count * self.obs_size - len(observations))
         # print(f'Fish observations: {len(observations)}')
         return observations
 
@@ -925,17 +941,3 @@ class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
         #     return observations
         # observations = {shark.id(): get_shark_observations(shark, aquarium, FISH_NUMBER) for shark in aquarium.sharks}
         return observations
-
-
-def env():
-    """Returns the AEC environment"""
-    env_aec = parallel_to_aec(raw_env())
-    env_aec = AssertOutOfBoundsWrapper(env_aec)
-    env_aec = OrderEnforcingWrapper(env_aec)
-
-    return env_aec
-
-
-def parallel_env():
-    """Returns the parallel environment"""
-    return aec_to_parallel(env())
