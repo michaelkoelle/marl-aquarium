@@ -1,6 +1,7 @@
 """View class, handles the drawing of the environment."""
 
 import math
+from importlib.resources import path  # Use importlib_resources for Python < 3.7
 from typing import Tuple
 
 import pygame
@@ -32,11 +33,12 @@ class View:
         self.background = pygame.Surface(self.screen.get_size())
         self.background.fill(self.background_color)
 
-        self.fish_image = pygame.image.load("marl_aquarium/env/assets/prey.png")
-        self.fish_image.convert()
-
-        self.shark_image = pygame.image.load("marl_aquarium/env/assets/predator.png")
-        self.shark_image.convert()
+        with path("marl_aquarium.env.assets", "prey.png") as img_path:
+            self.fish_image = pygame.image.load(str(img_path))
+            self.fish_image.convert()
+        with path("marl_aquarium.env.assets", "predator.png") as img_path:
+            self.shark_image = pygame.image.load(str(img_path))
+            self.shark_image.convert()
 
     def draw_view_cone(
         self,
