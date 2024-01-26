@@ -77,3 +77,13 @@ env.close()
 | `predator_reward`           | Reward for predator catching prey.                                      | `10`          |
 | `catch_radius`              | Radius within which predators can catch prey.                           | `100`         |
 | `procreate`                 | Whether entities can procreate within the environment.                  | `False`       |
+
+```python
+env = aquarium_v0.env(
+    draw_force_vectors=True,
+    draw_action_vectors=True,
+    draw_view_cones=True,
+    draw_hit_boxes=True,
+    draw_death_circles=True,
+)
+```
