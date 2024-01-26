@@ -34,4 +34,5 @@ setup(
         "pettingzoo==1.24.2",
         "pygame==2.1.3",
     ],
+    include_package_data=True,
 )
