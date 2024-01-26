@@ -5,16 +5,12 @@ setup(
     version="0.1.5",
     packages=find_packages(exclude=["examples"]),
     license="MIT",
-    include_package_data=True,
     description="Aquarium: A Comprehensive Framework for Exploring Predator-Prey Dynamics through Multi-Agent Reinforcement Learning Algorithms",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     author="Yannick Erpelding and Michael Kölle",
     author_email="michael.koelle@ifi.lmu.de",
     url="https://github.com/michaelkoelle/marl-aquarium",
-    package_data={
-        "": ["*.png", "example/*.png", "marl_aquarium/env/assets/*.png"],
-    },
     keywords=[
         "artificial intelligence",
         "pettingzoo",
