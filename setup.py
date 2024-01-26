@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="marl-aquarium",
-    version="0.1.4",
+    version="0.1.5",
     packages=find_packages(exclude=["examples"]),
     license="MIT",
     include_package_data=True,
@@ -13,7 +13,7 @@ setup(
     author_email="michael.koelle@ifi.lmu.de",
     url="https://github.com/michaelkoelle/marl-aquarium",
     package_data={
-        "": ["*.png"],
+        "": ["*.png", "example/*.png", "marl_aquarium/env/assets/*.png"],
     },
     keywords=[
         "artificial intelligence",
