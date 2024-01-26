@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="marl-aquarium",
-    version="0.1.2",
+    version="0.1.3",
     packages=find_packages(exclude=["examples"]),
     license="MIT",
     description="Aquarium: A Comprehensive Framework for Exploring Predator-Prey Dynamics through Multi-Agent Reinforcement Learning Algorithms",
@@ -11,6 +11,9 @@ setup(
     author="Yannick Erpelding and Michael Kölle",
     author_email="michael.koelle@ifi.lmu.de",
     url="https://github.com/michaelkoelle/marl-aquarium",
+    package_data={
+        "": ["*.png"],
+    },
     keywords=[
         "artificial intelligence",
         "pettingzoo",
