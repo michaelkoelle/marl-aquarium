@@ -32,10 +32,10 @@ class View:
         self.background = pygame.Surface(self.screen.get_size())
         self.background.fill(self.background_color)
 
-        self.fish_image = pygame.image.load("aquarium/env/assets/prey.png")
+        self.fish_image = pygame.image.load("marl_aquarium/env/assets/prey.png")
         self.fish_image.convert()
 
-        self.shark_image = pygame.image.load("aquarium/env/assets/predator.png")
+        self.shark_image = pygame.image.load("marl_aquarium/env/assets/predator.png")
         self.shark_image.convert()
 
     def draw_view_cone(
