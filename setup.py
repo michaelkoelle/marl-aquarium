@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="marl-aquarium",
-    version="0.1.0",
+    version="0.1.1",
     packages=find_packages(exclude=["examples"]),
     license="MIT",
     description="Aquarium: A Comprehensive Framework for Exploring Predator-Prey Dynamics through Multi-Agent Reinforcement Learning Algorithms",
