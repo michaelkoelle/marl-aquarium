@@ -4,7 +4,7 @@ import math
 from abc import ABC, abstractmethod
 from typing import Tuple
 
-from aquarium.env.vector import Vector
+from marl_aquarium.env.vector import Vector
 
 
 class Entity(ABC):

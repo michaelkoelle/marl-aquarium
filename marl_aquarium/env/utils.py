@@ -8,10 +8,10 @@ import numpy as np
 from moviepy.video.compositing.concatenate import concatenate_videoclips
 from moviepy.video.VideoClip import ImageClip
 
-from aquarium.env.animal import Entity
-from aquarium.env.predator import Predator
-from aquarium.env.prey import Prey
-from aquarium.env.vector import Vector
+from marl_aquarium.env.animal import Entity
+from marl_aquarium.env.predator import Predator
+from marl_aquarium.env.prey import Prey
+from marl_aquarium.env.vector import Vector
 
 
 class Torus:

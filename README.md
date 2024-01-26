@@ -7,13 +7,13 @@ A Comprehensive Framework for Exploring Predator-Prey Dynamics through Multi-Age
 ## Install
 
 ```bash
-pip install aquarium
+pip install marl-aquarium
 ```
 
 ## Example
 
 ```python
-from aquarium import aquarium_v0
+from marl_aquarium import aquarium_v0
 
 env = aquarium_v0.env()
 env.reset(seed=42)

@@ -2,8 +2,8 @@
 
 from typing import Tuple
 
-from aquarium.env.animal import Entity
-from aquarium.env.vector import Vector
+from marl_aquarium.env.animal import Entity
+from marl_aquarium.env.vector import Vector
 
 
 class Predator(Entity):

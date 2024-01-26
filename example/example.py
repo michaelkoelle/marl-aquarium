@@ -1,6 +1,6 @@
 """Example of how to use the Aquarium environment."""
 
-from aquarium import aquarium_v0
+from marl_aquarium import aquarium_v0
 
 env = aquarium_v0.env(
     # draw_force_vectors=True,

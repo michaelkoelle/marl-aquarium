@@ -3,7 +3,7 @@
 from pettingzoo.utils import aec_to_parallel, parallel_to_aec
 from pettingzoo.utils.wrappers import AssertOutOfBoundsWrapper, OrderEnforcingWrapper
 
-from aquarium.env.aquarium import raw_env
+from marl_aquarium.env.aquarium import raw_env
 
 
 def env(
