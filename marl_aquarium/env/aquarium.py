@@ -30,7 +30,7 @@ from marl_aquarium.env.view import View
 class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
     """The Aquarium environment"""
 
-    metadata = {"name": "aquarium-v0", "render_modes": ["human"]}
+    metadata = {"name": "aquarium-v0", "render_modes": ["human", "rgb_array"]}
 
     def __init__(
         self,
@@ -257,12 +257,9 @@ class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
         observations = prey_observations | predator_observations
         return observations
 
-    def render(self, mode: str | None = "human"):
+    def render(self, mode: str | None = None):
         if mode is not None:
             self.render_mode = mode
-
-        if self.render_mode != "human":
-            return
 
         if self.view is None:
             self.view = View(self.width, self.height, self.caption, self.fps)
@@ -312,6 +309,11 @@ class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
                     screenshot_surface = pygame.surfarray.make_surface(frame)
                     pygame.image.save(screenshot_surface, screenshot_filename)
                     print(f"Screenshot saved as {screenshot_filename}")
+
+        if self.render_mode == "rgb_array":
+            # Get the current frame as RGB array
+            frame = self.view.get_frame()
+            return frame
 
     def close(self):
         pygame.quit()  # pylint: disable=no-member
