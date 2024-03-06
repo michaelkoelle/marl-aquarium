@@ -12,7 +12,7 @@ import pygame
 from gymnasium.spaces import Box, Discrete
 from pettingzoo.utils.env import ParallelEnv
 
-from marl_aquarium.env.animal import Entity
+from marl_aquarium.env.entity import Entity
 from marl_aquarium.env.predator import Predator
 from marl_aquarium.env.prey import Prey
 from marl_aquarium.env.utils import (
@@ -360,7 +360,7 @@ class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
         return [self.create_random_prey() for _ in range(self.prey_count)]
 
     @functools.lru_cache(maxsize=None)  # type: ignore
-    def observation_space(self, agent: str):
+    def observation_space(self, agent: str):  # type: ignore
         # Predator
         if agent.startswith("predator"):
             return Box(
@@ -378,7 +378,7 @@ class raw_env(ParallelEnv[str, Box, Discrete | None]):  # pylint: disable=C0103
         )
 
     @functools.lru_cache(maxsize=None)  # type: ignore
-    def action_space(self, agent: str):
+    def action_space(self, agent: str):  # type: ignore
         return Discrete(self.action_count)
 
     def check_borders(self, animal: Entity):

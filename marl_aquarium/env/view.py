@@ -7,7 +7,7 @@ from typing import Tuple
 import pygame
 
 from marl_aquarium.env import utils
-from marl_aquarium.env.animal import Entity
+from marl_aquarium.env.entity import Entity
 from marl_aquarium.env.predator import Predator
 from marl_aquarium.env.prey import Prey
 from marl_aquarium.env.vector import Vector

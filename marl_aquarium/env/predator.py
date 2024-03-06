@@ -2,7 +2,7 @@
 
 from typing import Tuple
 
-from marl_aquarium.env.animal import Entity
+from marl_aquarium.env.entity import Entity
 from marl_aquarium.env.vector import Vector
 
 
